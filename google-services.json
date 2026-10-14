@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "677189483008",
+    "project_id": "trade-ntfy",
+    "storage_bucket": "trade-ntfy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:677189483008:android:6f65f526391df265f736e5",
+        "android_client_info": {
+          "package_name": "com.onedge.goldeanotify"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRRajuOxvKDGTFNq4F6OOL1Mrzyi1Sz1Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
