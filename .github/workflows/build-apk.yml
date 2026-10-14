@@ -1,56 +1,110 @@
-
 name: Build Trade ntfy APK
 
 on:
-  push:
-    paths:
-      - 'Trade_Ntfy_Android_Project.zip'
-      - '.github/workflows/build-apk.yml'
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   build:
+    name: Build debug APK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install \
+            'platform-tools' \
+            'platforms;android-35' \
+            'build-tools;35.0.0'
 
       - name: Verify project ZIP
+        shell: bash
         run: |
-          test -f Trade_Ntfy_Android_Project.zip
-          unzip -t Trade_Ntfy_Android_Project.zip
+          set -euo pipefail
+
+          ZIP_FILE="Trade_Ntfy_Android_Project.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: $ZIP_FILE is missing from the repository root."
+            exit 1
+          fi
+
+          unzip -t "$ZIP_FILE"
+
+          unzip -Z1 "$ZIP_FILE" | grep -qx 'settings.gradle.kts'
+          unzip -Z1 "$ZIP_FILE" | grep -qx 'app/build.gradle.kts'
+          unzip -Z1 "$ZIP_FILE" | grep -qx 'app/src/main/AndroidManifest.xml'
+          unzip -Z1 "$ZIP_FILE" | grep -qx 'app/src/main/java/com/tradentfy/app/MainActivity.kt'
 
       - name: Extract Android project
+        shell: bash
         run: |
+          set -euo pipefail
+
           mkdir -p /tmp/trade-ntfy-source
+
           unzip -q Trade_Ntfy_Android_Project.zip \
             -d /tmp/trade-ntfy-source
 
-          PROJECT_DIR="$(find /tmp/trade-ntfy-source \
-            -name settings.gradle.kts \
-            -print -quit | xargs -r dirname)"
+          PROJECT_DIR="$(
+            find /tmp/trade-ntfy-source \
+              -type f \
+              -name settings.gradle.kts \
+              -print -quit |
+            xargs -r dirname
+          )"
 
-          test -n "$PROJECT_DIR"
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: Android project files were not found."
+            exit 1
+          fi
+
           cp -a "$PROJECT_DIR"/. .
 
-      - name: Build debug APK
-        run: |
-          gradle --no-daemon assembleDebug
+          test -f settings.gradle.kts
+          test -f app/build.gradle.kts
+          test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/tradentfy/app/MainActivity.kt
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build APK
+        run: gradle --no-daemon --stacktrace assembleDebug
 
       - name: Verify APK
+        shell: bash
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
+          set -euo pipefail
+
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -s "$APK" ]; then
+            echo "ERROR: APK was not created."
+            exit 1
+          fi
+
+          echo "APK created successfully: $APK"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
