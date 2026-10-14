@@ -42,39 +42,45 @@ jobs:
           ZIP_FILE="Trade_Ntfy_Android_Project.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
-            ZIP_FILE="$(find . -maxdepth 1 -type f \
-              -iname 'Trade_Ntfy_Android_Project*.zip' \
-              -print | sort | tail -n 1)"
-          fi
-
-          if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: Trade ntfy project ZIP not found."
-            echo "Upload Trade_Ntfy_Android_Project.zip to the repository root."
+            echo "ERROR: $ZIP_FILE not found in repository root."
+            echo "Upload the updated project ZIP to the repository root."
             exit 1
           fi
-
-          echo "Using project ZIP: $ZIP_FILE"
 
           mkdir -p /tmp/trade-ntfy-source
           unzip -q "$ZIP_FILE" -d /tmp/trade-ntfy-source
 
-          SETTINGS_FILE="$(find /tmp/trade-ntfy-source \
+          PROJECT_DIR="$(find /tmp/trade-ntfy-source \
             -type f -name settings.gradle.kts \
-            -print -quit)"
+            -print -quit | xargs -r dirname)"
 
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: settings.gradle.kts is missing from the ZIP."
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: settings.gradle.kts not found inside ZIP."
             exit 1
           fi
 
-          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
           cp -a "$PROJECT_DIR"/. .
 
-          test -f settings.gradle.kts
-          test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/tradentfy/app/MainActivity.kt
-          test -f app/src/main/java/com/tradentfy/app/NtfySubscriptionService.kt
+
+          echo "Android project source files verified."
+
+      - name: Configure Firebase
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -f google-services.json ]; then
+            mkdir -p app
+            cp google-services.json app/google-services.json
+          elif [ -f app/google-services.json ]; then
+            echo "Firebase configuration already exists in app/."
+          else
+            echo "ERROR: google-services.json is missing."
+            echo "Upload the Firebase configuration to the repository root."
+            exit 1
+          fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
