@@ -33,16 +33,61 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Verify Android project files
+      - name: Extract Android project
+        shell: bash
         run: |
           set -e
+
+          ZIP_FILE="Trade_Ntfy_Android_Project (1).zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: Expected project ZIP was not found:"
+            echo "$ZIP_FILE"
+            echo "Files in repository root:"
+            ls -la
+            exit 1
+          fi
+
+          mkdir -p /tmp/trade-ntfy-source
+          unzip -q "$ZIP_FILE" -d /tmp/trade-ntfy-source
+
+          PROJECT_DIR="$(
+            find /tmp/trade-ntfy-source \
+              -name settings.gradle.kts \
+              -print -quit |
+              xargs -r dirname
+          )"
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: settings.gradle.kts was not found inside the ZIP."
+            echo "ZIP contents:"
+            unzip -l "$ZIP_FILE"
+            exit 1
+          fi
+
+          cp -a "$PROJECT_DIR"/. .
+
+          echo "Android project extracted from: $ZIP_FILE"
+
           test -f settings.gradle.kts
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
-          echo "Android project files found."
+
+      - name: Install Firebase configuration
+        run: |
+          if [ -f google-services.json ]; then
+            mkdir -p app
+            cp google-services.json app/google-services.json
+            echo "Firebase configuration copied."
+          else
+            echo "No root google-services.json found."
+          fi
 
       - name: Configure Java and Kotlin targets
+        shell: bash
         run: |
+          set -e
+
           cat >> app/build.gradle.kts <<'GRADLE'
 
           android {
@@ -58,6 +103,8 @@ jobs:
               }
           }
           GRADLE
+
+          echo "Java and Kotlin targets configured."
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
