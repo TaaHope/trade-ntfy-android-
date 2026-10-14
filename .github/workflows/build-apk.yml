@@ -38,20 +38,22 @@ jobs:
         shell: bash
         run: |
           set -e
-          ZIP_FILE="$(find . -maxdepth 1 -type f -name 'GoldEA_Notify_Android_Project*.zip' -print -quit)"
-          test -n "$ZIP_FILE" || {
-            echo "ERROR: Android project ZIP not found."
+          ZIP_FILE="Trade_Ntfy_Android_Project.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: $ZIP_FILE not found in repository root."
             exit 1
-          }
+          fi
 
           mkdir -p /tmp/trade-ntfy-source
           unzip -q "$ZIP_FILE" -d /tmp/trade-ntfy-source
 
           PROJECT_DIR="$(find /tmp/trade-ntfy-source -name settings.gradle.kts -print -quit | xargs -r dirname)"
-          test -n "$PROJECT_DIR" || {
-            echo "ERROR: settings.gradle.kts not found."
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: settings.gradle.kts not found in ZIP."
             exit 1
-          }
+          fi
 
           cp -a "$PROJECT_DIR"/. .
 
@@ -67,7 +69,6 @@ jobs:
           set -e
           cat >> app/build.gradle.kts <<'GRADLE'
 
-          // CI build compatibility settings
           android {
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
@@ -81,8 +82,6 @@ jobs:
               }
           }
           GRADLE
-
-          echo "Java and Kotlin JVM target settings added."
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
