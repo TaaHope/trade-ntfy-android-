@@ -2,10 +2,11 @@
 name: Build Trade ntfy APK
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    paths:
+      - 'Trade_Ntfy_Android_Project.zip'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,73 +25,34 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-
-      - name: Install Android SDK packages
+      - name: Verify project ZIP
         run: |
-          sdkmanager --install \
-            'platform-tools' \
-            'platforms;android-35' \
-            'build-tools;35.0.0'
+          test -f Trade_Ntfy_Android_Project.zip
+          unzip -t Trade_Ntfy_Android_Project.zip
 
-      - name: Extract Android project ZIP
-        shell: bash
+      - name: Extract Android project
         run: |
-          set -euo pipefail
-
-          ZIP_FILE="Trade_Ntfy_Android_Project.zip"
-
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: $ZIP_FILE not found in repository root."
-            echo "Upload the updated project ZIP to the repository root."
-            exit 1
-          fi
-
           mkdir -p /tmp/trade-ntfy-source
-          unzip -q "$ZIP_FILE" -d /tmp/trade-ntfy-source
+          unzip -q Trade_Ntfy_Android_Project.zip \
+            -d /tmp/trade-ntfy-source
 
           PROJECT_DIR="$(find /tmp/trade-ntfy-source \
-            -type f -name settings.gradle.kts \
+            -name settings.gradle.kts \
             -print -quit | xargs -r dirname)"
 
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: settings.gradle.kts not found inside ZIP."
-            exit 1
-          fi
-
+          test -n "$PROJECT_DIR"
+          test -f "$PROJECT_DIR/app/build.gradle.kts"
           cp -a "$PROJECT_DIR"/. .
 
-          test -f app/src/main/AndroidManifest.xml
-          test -f app/src/main/java/com/tradentfy/app/MainActivity.kt
-
-          echo "Android project source files verified."
-
-      - name: Configure Firebase
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -f google-services.json ]; then
-            mkdir -p app
-            cp google-services.json app/google-services.json
-          elif [ -f app/google-services.json ]; then
-            echo "Firebase configuration already exists in app/."
-          else
-            echo "ERROR: google-services.json is missing."
-            echo "Upload the Firebase configuration to the repository root."
-            exit 1
-          fi
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
       - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
+        run: |
+          gradle --no-daemon assembleDebug
 
-      - name: Upload APK
+      - name: Verify APK
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Trade-ntfy-APK
