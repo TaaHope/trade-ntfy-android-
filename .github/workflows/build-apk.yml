@@ -28,19 +28,28 @@ jobs:
         uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
-        run: sdkmanager --install 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+        run: |
+          sdkmanager --install \
+            'platform-tools' \
+            'platforms;android-35' \
+            'build-tools;35.0.0'
 
       - name: Extract Android project ZIP
         shell: bash
         run: |
           set -euo pipefail
 
-          ZIP_FILE="$(find . -maxdepth 1 -type f \
-            -iname 'Trade_Ntfy_Android_Project*.zip' \
-            -print | sort | tail -n 1)"
+          ZIP_FILE="Trade_Ntfy_Android_Project.zip"
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Trade ntfy project ZIP not found in repository root."
+          if [ ! -f "$ZIP_FILE" ]; then
+            ZIP_FILE="$(find . -maxdepth 1 -type f \
+              -iname 'Trade_Ntfy_Android_Project*.zip' \
+              -print | sort | tail -n 1)"
+          fi
+
+          if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: Trade ntfy project ZIP not found."
+            echo "Upload Trade_Ntfy_Android_Project.zip to the repository root."
             exit 1
           fi
 
@@ -49,19 +58,23 @@ jobs:
           mkdir -p /tmp/trade-ntfy-source
           unzip -q "$ZIP_FILE" -d /tmp/trade-ntfy-source
 
-          PROJECT_DIR="$(find /tmp/trade-ntfy-source \
+          SETTINGS_FILE="$(find /tmp/trade-ntfy-source \
             -type f -name settings.gradle.kts \
-            -print -quit | xargs -r dirname)"
+            -print -quit)"
 
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: settings.gradle.kts not found inside ZIP."
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: settings.gradle.kts is missing from the ZIP."
             exit 1
           fi
 
+          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
           cp -a "$PROJECT_DIR"/. .
 
+          test -f settings.gradle.kts
+          test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/tradentfy/app/MainActivity.kt
+          test -f app/src/main/java/com/tradentfy/app/NtfySubscriptionService.kt
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
